@@ -1,6 +1,5 @@
 package com.example.ref01.ui.screens
 
-
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -9,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,27 +30,33 @@ import kotlinx.coroutines.launch
 @Composable
 fun RegisterScreen(
     onBack: () -> Unit,
-    onRegistered: () -> Unit // ⬅️ NUEVO: callback para navegar a Login
+    onRegistered: () -> Unit
 ) {
     // Campos requeridos
-    var username by remember { mutableStateOf("") }     // nombre de usuario
-    var password by remember { mutableStateOf("") }     // contraseña
-    var firstName by remember { mutableStateOf("") }    // nombre
-    var lastName by remember { mutableStateOf("") }     // apellido
-    var email by remember { mutableStateOf("") }        // correo
-    // dropdown
-    val countries = listOf("Chile", "Argentina", "México")
-    var countryExpanded by remember { mutableStateOf(false) }
-    var countrySelected by remember { mutableStateOf(countries.first()) }
+    var username  by rememberSaveable { mutableStateOf("") }
+    var password  by rememberSaveable { mutableStateOf("") }
+    var firstName by rememberSaveable { mutableStateOf("") }
+    var lastName  by rememberSaveable { mutableStateOf("") }
+    var email     by rememberSaveable { mutableStateOf("") }
 
-    // Terminos - condicion pata que pase el login
-    var acceptTerms by remember { mutableStateOf(false) }
+    //  País con dropdown
+    val countries = listOf("Chile", "Argentina", "México")
+    var countryExpanded by rememberSaveable { mutableStateOf(false) }
+    var countrySelected by rememberSaveable { mutableStateOf(countries.first()) }
+
+    // Aceptar términos
+    var acceptTerms by rememberSaveable { mutableStateOf(false) }
 
     // Feedback
     var feedback by remember { mutableStateOf("") }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // Capacidad / restantes del Array
+    val capacity = UserRepository.capacity()
+    val remaining = UserRepository.remaining()
+    val hasCapacity = UserRepository.hasCapacity()
 
     Column(
         modifier = Modifier
@@ -60,7 +66,14 @@ fun RegisterScreen(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Registro de usuario (máx. 5)", style = MaterialTheme.typography.titleLarge)
+        Text("Registro de usuario (máx. $capacity)", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Restantes: $remaining",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (hasCapacity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        )
+
         Spacer(Modifier.height(Dimens.BetweenItems))
 
         // Usuario
@@ -128,7 +141,7 @@ fun RegisterScreen(
         )
         Spacer(Modifier.height(Dimens.BetweenItems))
 
-        // Pais
+        // País
         ExposedDropdownMenuBox(
             expanded = countryExpanded,
             onExpandedChange = { countryExpanded = it },
@@ -163,7 +176,7 @@ fun RegisterScreen(
 
         Spacer(Modifier.height(Dimens.BetweenItems))
 
-        // Checkbox
+        // Checkbox términos
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Checkbox(
                 checked = acceptTerms,
@@ -179,43 +192,56 @@ fun RegisterScreen(
 
         Spacer(Modifier.height(Dimens.BetweenItems))
 
-        // Guardar
+        // BTN Guardar
         Button(
             onClick = {
-                if (!acceptTerms) {
-                    feedback = "Debes aceptar términos"
-                } else {
-                    UserRepository.addUser(
-                        username = username,
-                        password = password,
-                        firstName = firstName,
-                        lastName = lastName,
-                        email = email,
-                        country = countrySelected
-                    )
-                        .onSuccess { created ->
-                            // Mensaje en pantalla con valores para la demo de asignatura
-                            feedback = "Usuario registrado con éxito, muestra datos para la demo de asignatura \n" +
-                                    "username = \"${created.username}\"\n" +
-                                    "password = \"${created.password}\""
+                when {
+                    !UserRepository.hasCapacity() -> {
+                        feedback = "Máximo ${UserRepository.capacity()} usuarios para la demo."
+                    }
+                    !acceptTerms -> {
+                        feedback = "Debes aceptar términos"
+                    }
+                    else -> {
+                        UserRepository.addUser(
+                            username = username,
+                            password = password,
+                            firstName = firstName,
+                            lastName = lastName,
+                            email = email,
+                            country = countrySelected
+                        )
+                            .onSuccess { created ->
+                                // Mensaje en pantalla con valores para la demo de asignatura
+                                feedback = """
+                                    Usuario registrado con éxito
+                                    username = "${created.username}"
+                                    password = "${created.password}"
+                                    Total: ${UserRepository.count()}/${UserRepository.capacity()}
+                                """.trimIndent()
 
-                            // Toast
-                            Toast.makeText(context, "Registro exitoso", Toast.LENGTH_SHORT).show()
+                                // Toast
+                                Toast.makeText(context, "Registro exitoso", Toast.LENGTH_SHORT).show()
 
-                            // Espera y pasa al Login
-                           
-                            scope.launch {
-                                delay(2000)
-                                onRegistered()
+                                // limpiar campos
+                                username = ""; password = ""; firstName = ""; lastName = ""; email = ""
+                                acceptTerms = false
+
+                                // Espera y pasa al Login
+                                scope.launch {
+                                    delay(1500)
+                                    onRegistered()
+                                }
                             }
-                        }
-                        .onFailure { e ->
-                            feedback = e.message ?: "Error al registrar"
-                        }
+                            .onFailure { e ->
+                                feedback = e.message ?: "Error al registrar"
+                            }
+                    }
                 }
             },
-            enabled = username.isNotBlank() && password.isNotBlank()
-                    && firstName.isNotBlank() && lastName.isNotBlank() && email.isNotBlank(),
+            enabled = UserRepository.hasCapacity() && // deshabilita si ya no hay cupos
+                    username.isNotBlank() && password.isNotBlank() &&
+                    firstName.isNotBlank() && lastName.isNotBlank() && email.isNotBlank(),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(Dimens.ButtonHeight)
@@ -250,6 +276,8 @@ fun RegisterScreen(
                 Divider()
             }
         }
+
+
     }
 }
 
@@ -257,7 +285,7 @@ fun RegisterScreen(
 @Preview(name = "Registro Oscuro", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
 private fun PreviewRegister() {
-    Ref01Theme(dynamicColor = false) { // para ver bien los colores por defecto
+    Ref01Theme {
         RegisterScreen(onBack = {}, onRegistered = {})
     }
 }

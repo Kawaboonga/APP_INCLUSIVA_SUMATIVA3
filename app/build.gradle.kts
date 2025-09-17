@@ -43,6 +43,9 @@ android {
 }
 
 dependencies {
+
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // Compose BOM (alinea todas las libs de Compose)
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
 
@@ -53,6 +56,8 @@ dependencies {
 
     // Material 3
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+
 
     // Activity + Compose
     implementation("androidx.activity:activity-compose:1.9.0")

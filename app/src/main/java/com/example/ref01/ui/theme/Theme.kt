@@ -1,8 +1,6 @@
 package com.example.ref01.ui.theme
 
-import android.app.Activity
 import android.content.res.Configuration
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -11,19 +9,81 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+import androidx.compose.ui.graphics.Color
+
+
+// --- Esquema oscuro
+private val DarkColors = darkColorScheme(
+    primary = PurpleDark,
+    onPrimary = Color.White,
+    primaryContainer = PurpleDeep,
+    onPrimaryContainer = Color.White,
+
+    secondary = BlueStrong,
+    onSecondary = Color.White,
+    secondaryContainer = PurpleExtra,
+    onSecondaryContainer = Color.White,
+
+    tertiary = GreenAccent,
+    onTertiary = Color.Black,
+
+    background = Color(0xFF121212),
+    onBackground = Color.White,
+    surface = Color(0xFF121212),
+    onSurface = Color.White
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
+// --- Esquema claro
+private val LightColors = lightColorScheme(
+    primary = Purple,
+    onPrimary = Color.White,
+    primaryContainer = PurpleLight,
+    onPrimaryContainer = Color.Black,
+
+    secondary = BlueAccent,
+    onSecondary = Color.White,
+    secondaryContainer = PurpleMedium,
+    onSecondaryContainer = Color.Black,
+
+    tertiary = GreenAccent,
+    onTertiary = Color.Black,
+
+    background = Color.White,
+    onBackground = Color.Black,
+    surface = Color.White,
+    onSurface = Color.Black
+)
+
+@Composable
+fun Ref01Theme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    MaterialTheme(
+        colorScheme = if (darkTheme) DarkColors else LightColors,
+        typography = Typography,
+        content = content
+    )
+}
+
+
+
+
+
+
+
+    /**primary = Purple80,
+    secondary = PurpleGrey80,
+    tertiary = Pink80**/
+
+
+    /**primary = Purple40,
     secondary = PurpleGrey40,
-    tertiary = Pink40
+    tertiary = Pink40**/
+
+
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
@@ -34,8 +94,11 @@ private val LightColorScheme = lightColorScheme(
     onBackground = Color(0xFF1C1B1F),
     onSurface = Color(0xFF1C1B1F),
     */
-)
 
+
+
+
+/**
 @Composable
 fun Ref01Theme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -58,7 +121,7 @@ fun Ref01Theme(
         typography = Typography,
         content = content
     )
-}
+} **/
 
 @Preview(name = "Tema Claro", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
 @Preview(name = "Tema Oscuro", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
