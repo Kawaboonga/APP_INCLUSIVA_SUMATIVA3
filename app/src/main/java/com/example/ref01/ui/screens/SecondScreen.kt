@@ -24,7 +24,9 @@ fun SecondScreen(
         title = titulo,
         canNavigateBack = true,
         onBack = onBack,
-        paragraphProvider = paragraphProvider,
+        //paragraphProvider = paragraphProvider,
+        paragraphProvider = { emptyList() },
+        showOverflowMenu = false,
         topBarColor = PurpleMedium,   // color de fondo del TopBar
         topBarIconSize = 28.dp        // íconos TTS más grandes
     ) {

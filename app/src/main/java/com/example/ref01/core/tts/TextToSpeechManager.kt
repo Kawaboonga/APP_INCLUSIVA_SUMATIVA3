@@ -77,7 +77,12 @@ class TextToSpeechManager(
             }
 
             override fun onDone(utteranceId: String?) {
-                val idx = utteranceId?.substringAfterLast("#")?.toIntOrNull() ?: return
+                // IDs con formato: "utt#<index>#<uuid>"
+                val idx = utteranceId
+                    ?.split("#")
+                    ?.getOrNull(1)
+                    ?.toIntOrNull() ?: return
+
                 onUtteranceDone(idx)
                 if (idx + 1 < queue.size) speakIndex(idx + 1, flush = false)
             }
@@ -96,7 +101,7 @@ class TextToSpeechManager(
         tts?.setPitch(pitch)
 
         val id = "utt#0#${UUID.randomUUID()}"
-        // 👇 Importante: null en lugar de Bundle()
+        // Importante: null en lugar de Bundle()
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
     }
 
@@ -128,11 +133,10 @@ class TextToSpeechManager(
     fun release() { tts?.shutdown() }
 
     private fun speakIndex(index: Int, flush: Boolean = false) {
-        // 👇 Se elimina el guard clause; ya validas en las llamadas públicas
         currentIndex = index
         val id = "utt#$index#${UUID.randomUUID()}"
         val mode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-        // 👇 Importante: null en lugar de Bundle()
+        // Importante: null en lugar de Bundle()
         tts?.speak(queue[index], mode, null, id)
     }
 }

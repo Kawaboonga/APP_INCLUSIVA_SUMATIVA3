@@ -1,21 +1,23 @@
 package com.example.ref01.ui.theme
 
 import android.content.res.Configuration
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 
-import androidx.compose.ui.graphics.Color
-
-
-// --- Esquema oscuro
-private val DarkColors = darkColorScheme(
+// -------------------- PALETA OSCURA --------------------
+private val DarkColors: ColorScheme = darkColorScheme(
     primary = PurpleDark,
     onPrimary = Color.White,
     primaryContainer = PurpleDeep,
@@ -35,8 +37,8 @@ private val DarkColors = darkColorScheme(
     onSurface = Color.White
 )
 
-// --- Esquema claro
-private val LightColors = lightColorScheme(
+// -------------------- PALETA CLARA --------------------
+private val LightColors: ColorScheme = lightColorScheme(
     primary = Purple,
     onPrimary = Color.White,
     primaryContainer = PurpleLight,
@@ -56,6 +58,7 @@ private val LightColors = lightColorScheme(
     onSurface = Color.Black
 )
 
+// Tema base (sin animación)
 @Composable
 fun Ref01Theme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -68,64 +71,47 @@ fun Ref01Theme(
     )
 }
 
-
-
-
-
-
-
-    /**primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80**/
-
-
-    /**primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40**/
-
-
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-
-
-
-
-/**
+// Tema con transición suave (Crossfade)
 @Composable
-fun Ref01Theme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
+fun AnimatedRef01Theme(
+    darkTheme: Boolean,
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    val context = LocalContext.current
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    // Calculamos el esquema destino según el modo
+    val targetScheme: ColorScheme = when {
+        dynamicColor -> if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        darkTheme     -> DarkColors
+        else          -> LightColors
     }
 
+    // Suavizamos la transición con un fade en el fondo y superficies principales
+    // (sin recrear el árbol completo). Si quieres algo más elaborado, lo ampliamos.
+    val bg by animateColorAsState(targetScheme.background, label = "bg")
+    val surface by animateColorAsState(targetScheme.surface, label = "surface")
+    val onBg by animateColorAsState(targetScheme.onBackground, label = "onBg")
+    val onSurface by animateColorAsState(targetScheme.onSurface, label = "onSurface")
+    // El resto de colores los aplicamos directo (sin animar) para no sobrecargar.
+
+    val animatedScheme = targetScheme.copy(
+        background = bg,
+        surface = surface,
+        onBackground = onBg,
+        onSurface = onSurface
+    )
+
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = animatedScheme,
         typography = Typography,
         content = content
     )
-} **/
+}
 
 @Preview(name = "Tema Claro", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
 @Preview(name = "Tema Oscuro", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
 private fun ThemePreview() {
-    Ref01Theme { Text("Preview de tema") }
+    Ref01Theme { androidx.compose.material3.Text("Preview de tema") }
 }

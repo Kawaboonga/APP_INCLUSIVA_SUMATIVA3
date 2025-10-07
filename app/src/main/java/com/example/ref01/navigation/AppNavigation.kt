@@ -2,6 +2,7 @@ package com.example.ref01.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag // 👈 IMPORTANTE
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -11,6 +12,10 @@ import androidx.navigation.navArgument
 import com.example.ref01.navigation.routes.Screen
 import com.example.ref01.ui.screens.*
 
+// 👇 imports explícitos de sub-paquetes
+import com.example.ref01.ui.screens.settings.SettingsScreen
+import com.example.ref01.ui.screens.devicefinder.BuscarDispositivoScreen
+
 @Composable
 fun AppNavigation(
     navController: NavHostController,
@@ -19,26 +24,19 @@ fun AppNavigation(
     NavHost(
         navController = navController,
         startDestination = Screen.Login.route,
-        modifier = modifier
+        modifier = modifier.testTag("nav_host_root") // 👈 TAG PARA PRUEBAS
     ) {
-        // ---------- Auth ----------
-
-        composable("scrollProbe") { ScrollProbe() }
-
+        // ---------- Probes / util ----------
+        composable("scrollProbe")   { ScrollProbe() }
         composable("scrollProbeM3") { ScrollProbeM3() }
+        composable("probeBare")     { ProbeBare() }
 
-        composable("probeBare") { ProbeBare() }
-
-
-
-
-
+        // ---------- Auth ----------
         composable(Screen.Login.route) {
             LoginScreen(
                 onGoRegister = { navController.navigate(Screen.Register.route) },
                 onGoForgot   = { navController.navigate(Screen.Forgot.route) },
                 onLoginSuccess = {
-                    // LOGIN -> FIRST, removiendo Login del backstack
                     navController.navigate(Screen.First.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                         launchSingleTop = true
@@ -50,7 +48,7 @@ fun AppNavigation(
         composable(Screen.Register.route) {
             RegisterScreen(
                 onBack = { navController.popBackStack() },
-                onRegistered = { navController.popBackStack() } // vuelve a Login
+                onRegistered = { navController.popBackStack() }
             )
         }
 
@@ -59,16 +57,9 @@ fun AppNavigation(
         }
 
         // ---------- Flujo lineal ----------
-        /**composable(Screen.First.route)  {
+        composable(Screen.First.route) {
             FirstScreen(
-                onNext = { navController.navigate(Screen.Second.route) },
-                onBack = { /* Primera del flujo, no retrocede */ }
-            )
-        }**/
-
-        composable(Screen.First.route)  {
-            FirstScreen(
-                navController = navController,                    // ✅ pásalo acá
+                navController = navController,
                 onNext = { navController.navigate(Screen.Second.route) },
                 onBack = { /* Primera del flujo, no retrocede */ }
             )
@@ -88,7 +79,6 @@ fun AppNavigation(
             )
         }
 
-        // ✅ Fourth -> Home (sin limpiar pila)
         composable(Screen.Fourth.route) {
             FourthScreen(
                 onFinish = {
@@ -97,6 +87,12 @@ fun AppNavigation(
                         restoreState = false
                     }
                 },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.UserProfile.route) {
+            UserProfileScreen(
                 onBack = { navController.popBackStack() }
             )
         }
@@ -114,6 +110,15 @@ fun AppNavigation(
         ) { backStack ->
             val id = backStack.arguments?.getInt(Screen.BookDetail.ARG_BOOK_ID) ?: -1
             BookDetailScreen(navController = navController, bookId = id)
+        }
+
+        // ---------- NUEVAS RUTAS ----------
+        composable(Screen.Settings.route) {
+            SettingsScreen(navController = navController)
+        }
+
+        composable(Screen.DeviceFinder.route) {
+            BuscarDispositivoScreen(navController = navController)
         }
     }
 }

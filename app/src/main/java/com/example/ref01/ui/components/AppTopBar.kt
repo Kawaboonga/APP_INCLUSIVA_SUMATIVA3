@@ -1,46 +1,33 @@
-// ui/components/AppTopBar.kt
 package com.example.ref01.ui.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag // 👈 IMPORTANTE
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.example.ref01.core.tts.LocalReadAloud
-
-
+import com.example.ref01.navigation.routes.Screen
+import com.example.ref01.ui.theme.LocalThemeController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppTopBar(
     title: String,
-    canNavigateBack: Boolean,
-    onBack: (() -> Unit)?,
-    paragraphProvider: () -> List<String>,
+    canNavigateBack: Boolean = false,
+    onBack: (() -> Unit)? = null,
+    paragraphProvider: () -> List<String> = { emptyList() },
     containerColor: Color,
     contentColor: Color = Color.White,
     iconSize: Dp = 28.dp,
@@ -49,95 +36,136 @@ fun AppTopBar(
     showTitle: Boolean = true,
     showBackLabel: Boolean = false,
     backLabel: String = "Volver",
-    scrollBehavior: TopAppBarScrollBehavior? = null
+    scrollBehavior: TopAppBarScrollBehavior? = null,
+    navController: NavController? = null,
+    showOverflowMenu: Boolean = true,
+    showUserAction: Boolean = true
 ) {
     val reader = LocalReadAloud.current
+    val themeCtl = LocalThemeController.current
+    val currentNav by rememberUpdatedState(navController)
+
+    var isReading by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+
+    val rotation by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (themeCtl.isDark) 180f else 0f, label = "ThemeIconRotate"
+    )
 
     TopAppBar(
         title = {
             if (showTitle) {
                 Text(
                     text = title,
-                    modifier = Modifier.padding(start = 20.dp)
+                    color = contentColor,
+                    modifier = Modifier.testTag("topbar_title")
                 )
-            } else {
-                Text(text = "")
             }
         },
         navigationIcon = {
             if (canNavigateBack && onBack != null) {
-                if (showBackLabel) {
-                    Row(
-                        modifier = Modifier
-                            .clickable(onClick = onBack)
-                            .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            modifier = Modifier.size(iconSize),
-                            tint = contentColor
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = backLabel,
-                            color = contentColor,
-                            fontSize = 18.sp
-                        )
-                    }
-                } else {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            modifier = Modifier.size(iconSize),
-                            tint = contentColor
-                        )
-                    }
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.testTag("nav_back_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = if (showBackLabel) backLabel else "Volver",
+                        tint = contentColor
+                    )
                 }
             }
         },
         actions = {
-            // PLAY: inicia cola si hay texto; si no, intenta reanudar
-            IconButton(onClick = {
-                val ps = paragraphProvider()
-                if (ps.isNotEmpty()) reader.readParagraphs(ps) else reader.resume()
-            }) {
+            // Toggle de tema
+            IconButton(
+                onClick = themeCtl.toggle,
+                modifier = Modifier.testTag("theme_toggle_btn")
+            ) {
                 Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Leer/Reanudar",
-                    modifier = Modifier.size(iconSize),
-                    tint = contentColor
+                    imageVector = if (themeCtl.isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                    contentDescription = if (themeCtl.isDark) "Cambiar a tema claro" else "Cambiar a tema oscuro",
+                    tint = contentColor,
+                    modifier = Modifier.rotate(rotation)
                 )
             }
 
-            // PAUSE
-            IconButton(onClick = { reader.pause() }) {
-                Icon(
-                    imageVector = Icons.Filled.Pause,
-                    contentDescription = "Pausar",
-                    modifier = Modifier.size(iconSize),
-                    tint = contentColor
-                )
+            // Play <-> Pausa (TTS)
+            if (!isReading) {
+                IconButton(
+                    onClick = {
+                        reader.readParagraphs(paragraphProvider())
+                        isReading = true
+                    },
+                    modifier = Modifier.testTag("tts_play_btn")
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "Reproducir", tint = contentColor)
+                }
+            } else {
+                IconButton(
+                    onClick = {
+                        reader.pause()
+                        isReading = false
+                    },
+                    modifier = Modifier.testTag("tts_pause_btn")
+                ) {
+                    Icon(Icons.Filled.Pause, contentDescription = "Pausar", tint = contentColor)
+                }
             }
 
-            // STOP
-            IconButton(onClick = { reader.stop() }) {
-                Icon(
-                    imageVector = Icons.Filled.Stop,
-                    contentDescription = "Detener",
-                    modifier = Modifier.size(iconSize),
-                    tint = contentColor
-                )
+            // Perfil de usuario
+            if (showUserAction) {
+                IconButton(
+                    onClick = { currentNav?.navigate(Screen.UserProfile.route) },
+                    modifier = Modifier.testTag("user_profile_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AccountCircle,
+                        contentDescription = "Perfil de usuario",
+                        tint = contentColor
+                    )
+                }
             }
 
-            // A− / A+
-            onDecFont?.let {
-                TextButton(onClick = it) { Text("A−", color = contentColor) }
-            }
-            onIncFont?.let {
-                TextButton(onClick = it) { Text("A+", color = contentColor) }
+            // Overflow ⋮
+            if (showOverflowMenu) {
+                IconButton(
+                    onClick = { showMenu = !showMenu },
+                    modifier = Modifier.testTag("overflow_btn")
+                ) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Más opciones", tint = contentColor)
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.testTag("overflow_menu")
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Detener lectura") },
+                        onClick = {
+                            showMenu = false
+                            reader.stop()
+                            isReading = false
+                        },
+                        modifier = Modifier.testTag("menu_stop_reading")
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Buscar dispositivo") },
+                        onClick = {
+                            showMenu = false
+                            currentNav?.navigate(Screen.DeviceFinder.route)
+                        },
+                        modifier = Modifier.testTag("menu_device_finder")
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Configuración") },
+                        onClick = {
+                            showMenu = false
+                            currentNav?.navigate(Screen.Settings.route)
+                        },
+                        modifier = Modifier.testTag("menu_settings")
+                    )
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -146,6 +174,7 @@ fun AppTopBar(
             navigationIconContentColor = contentColor,
             actionIconContentColor = contentColor
         ),
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
+        modifier = Modifier.testTag("app_top_bar")
     )
 }

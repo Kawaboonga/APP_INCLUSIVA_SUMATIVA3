@@ -6,5 +6,6 @@ data class User(
     val firstName: String,
     val lastName: String,
     val email: String,
-    val country: String
+    val country: String,
+    val rut: String? = null     // <- nuevo campo opcional
     )

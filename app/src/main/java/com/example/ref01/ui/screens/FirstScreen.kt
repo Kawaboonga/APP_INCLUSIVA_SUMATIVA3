@@ -41,14 +41,17 @@ fun FirstScreen(
         title = titulo,
         canNavigateBack = false,     // sin flecha en TopBar
         onBack = {},
-        paragraphProvider = paragraphProvider,
-        topBarColor = PurpleMedium
+        //paragraphProvider = paragraphProvider,
+        paragraphProvider = { emptyList() },
+        topBarColor = PurpleMedium,
+        navController = navController,
+        showOverflowMenu = false    //  oculta ⋮
     ) {
         StepScreenLayout(
             title = titulo,
             body = cuerpo,
             onPrimary = onNext,
-            // 👇 Ir SIEMPRE a Home (aunque no esté en el back stack)
+            //  Ir SIEMPRE a Home (aunque no esté en el back stack)
             onSecondary = {
                 navController.navigate(Screen.Home.route) {
                     popUpTo(navController.graph.findStartDestination().id) {
@@ -87,7 +90,7 @@ fun FirstScreen(
             title = titulo,
             body = cuerpo,
             onPrimary = onNext,
-            showSecondary = false   // 👈 Oculta botón Volver
+            showSecondary = false   //  Oculta botón Volver
         )
     }
 }

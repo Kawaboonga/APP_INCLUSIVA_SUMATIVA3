@@ -24,7 +24,9 @@ fun ThirdScreen(
         title = titulo,
         canNavigateBack = true,
         onBack = onBack,
-        paragraphProvider = paragraphProvider,
+        //paragraphProvider = paragraphProvider,
+        paragraphProvider = { emptyList() },
+        showOverflowMenu = false,
         topBarColor = PurpleMedium,
         topBarIconSize = 28.dp
     ) {

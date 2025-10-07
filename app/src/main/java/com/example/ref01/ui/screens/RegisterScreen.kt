@@ -20,11 +20,25 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.ref01.data.UserRepository
 import com.example.ref01.ui.theme.Ref01Theme
 import com.example.ref01.ui.utils.Dimens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+// 🔄 Nuevo: SQLite repo + DB helper para listar/contar usuarios
+import com.example.ref01.data.local.DBHelper
+import com.example.ref01.data.local.UserLocalRepository
+
+// Modelo simple para mostrar en la lista (evitamos exponer entidades internas)
+private data class UiUser(
+    val username: String,
+    val firstName: String?,
+    val lastName: String?,
+    val email: String?,
+    val country: String?
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,10 +67,46 @@ fun RegisterScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Capacidad / restantes del Array
-    val capacity = UserRepository.capacity()
-    val remaining = UserRepository.remaining()
-    val hasCapacity = UserRepository.hasCapacity()
+    // 🔄 Nuevo: repo SQLite
+    val userRepo = remember { UserLocalRepository(context) }
+
+    // 🔄 Nuevo: listado de usuarios desde la BD
+    var users by remember { mutableStateOf(listOf<UiUser>()) }
+    var total by remember { mutableStateOf(0) }
+    val MAX_USERS = 100 // soft-cap de la demo; cambia a Int.MAX_VALUE si no lo quieres
+
+    suspend fun reloadUsers() {
+        val (list, count) = withContext(Dispatchers.IO) {
+            // Consultamos directo la DB para listado y conteo
+            val db = DBHelper(context).readableDatabase
+            val items = mutableListOf<UiUser>()
+            var c = 0
+            db.rawQuery(
+                "SELECT username, first_name, last_name, email, country FROM users ORDER BY id DESC",
+                emptyArray()
+            ).use { cur ->
+                while (cur.moveToNext()) {
+                    val u = UiUser(
+                        username = cur.getString(0),
+                        firstName = cur.getString(1),
+                        lastName = cur.getString(2),
+                        email = cur.getString(3),
+                        country = cur.getString(4)
+                    )
+                    items.add(u)
+                }
+                c = cur.count
+            }
+            items to c
+        }
+        users = list
+        total = count
+    }
+
+    // Cargar al entrar
+    LaunchedEffect(Unit) { reloadUsers() }
+
+    val hasCapacity = total < MAX_USERS
 
     Column(
         modifier = Modifier
@@ -66,10 +116,10 @@ fun RegisterScreen(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Registro de usuario (máx. $capacity)", style = MaterialTheme.typography.titleLarge)
+        Text("Registro de usuario (máx. $MAX_USERS)", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Restantes: $remaining",
+            "Registrados: $total  •  Restantes: ${MAX_USERS - total}",
             style = MaterialTheme.typography.bodySmall,
             color = if (hasCapacity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
@@ -192,56 +242,63 @@ fun RegisterScreen(
 
         Spacer(Modifier.height(Dimens.BetweenItems))
 
-        // BTN Guardar
+        // BTN Guardar (ahora usando SQLite)
         Button(
             onClick = {
                 when {
-                    !UserRepository.hasCapacity() -> {
-                        feedback = "Máximo ${UserRepository.capacity()} usuarios para la demo."
+                    !hasCapacity -> {
+                        feedback = "Máximo $MAX_USERS usuarios para la demo."
                     }
                     !acceptTerms -> {
                         feedback = "Debes aceptar términos"
                     }
+                    username.isBlank() || password.isBlank()
+                            || firstName.isBlank() || lastName.isBlank() || email.isBlank() -> {
+                        feedback = "Completa todos los campos"
+                    }
                     else -> {
-                        UserRepository.addUser(
-                            username = username,
-                            password = password,
-                            firstName = firstName,
-                            lastName = lastName,
-                            email = email,
-                            country = countrySelected
-                        )
-                            .onSuccess { created ->
-                                // Mensaje en pantalla con valores para la demo de asignatura
+                        // Registrar en BD (IO)
+                        scope.launch {
+                            val res = withContext(Dispatchers.IO) {
+                                userRepo.register(
+                                    username = username,
+                                    password = password,
+                                    firstName = firstName,
+                                    lastName = lastName,
+                                    email = email,
+                                    country = countrySelected
+                                )
+                            }
+                            res.onSuccess {
                                 feedback = """
                                     Usuario registrado con éxito
-                                    username = "${created.username}"
-                                    password = "${created.password}"
-                                    Total: ${UserRepository.count()}/${UserRepository.capacity()}
+                                    username = "$username"
+                                    password = "$password"
+                                    Total: ${total + 1}/$MAX_USERS
                                 """.trimIndent()
 
-                                // Toast
                                 Toast.makeText(context, "Registro exitoso", Toast.LENGTH_SHORT).show()
 
                                 // limpiar campos
                                 username = ""; password = ""; firstName = ""; lastName = ""; email = ""
                                 acceptTerms = false
 
-                                // Espera y pasa al Login
+                                // recargar listado
+                                reloadUsers()
+
+                                // pequeña pausa y volver
                                 scope.launch {
-                                    delay(1500)
+                                    delay(1200)
                                     onRegistered()
                                 }
+                            }.onFailure { e ->
+                                feedback = e.message ?: "Error al registrar (usuario/correo ya existe)"
                             }
-                            .onFailure { e ->
-                                feedback = e.message ?: "Error al registrar"
-                            }
+                        }
                     }
                 }
             },
-            enabled = UserRepository.hasCapacity() && // deshabilita si ya no hay cupos
-                    username.isNotBlank() && password.isNotBlank() &&
-                    firstName.isNotBlank() && lastName.isNotBlank() && email.isNotBlank(),
+            enabled = hasCapacity,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(Dimens.ButtonHeight)
@@ -263,24 +320,24 @@ fun RegisterScreen(
         Spacer(Modifier.height(Dimens.BetweenItems))
         Text("Usuarios registrados:", style = MaterialTheme.typography.titleMedium)
 
+        // 🔄 Lista de usuarios desde SQLite
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 0.dp, max = 220.dp)
         ) {
-            items(UserRepository.list()) { u ->
+            items(users) { u ->
                 ListItem(
-                    headlineContent = { Text("${u.firstName} ${u.lastName} (${u.username})") },
-                    supportingContent = { Text("${u.email} • ${u.country}") }
+                    headlineContent = { Text("${(u.firstName ?: "").ifBlank { "Nombre" }} ${(u.lastName ?: "").ifBlank { "" }} (${u.username})") },
+                    supportingContent = { Text("${u.email ?: "—"} • ${u.country ?: "—"}") }
                 )
                 Divider()
             }
         }
-
-
     }
 }
 
+// Previews
 @Preview(name = "Registro Claro", uiMode = Configuration.UI_MODE_NIGHT_NO, showBackground = true)
 @Preview(name = "Registro Oscuro", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
